@@ -1,0 +1,139 @@
+PROMISE ROWS AND A WIRE-USE BUDGET
+
+Status
+------
+This is a research library on shivareddy42's fork. It is not a submitted desk
+proof and has no fleet-acceptance verdict. The counting identity and monotonicity
+principles are classical; the contribution is a reusable Lean interface and an
+explicit boundary between two kinds of input-necessity witness.
+
+Source: lean/PEqualNP/Research/PromiseWireBudget.lean
+Checks: research/VerifyPromiseWireBudget.lean
+Runner: tools/verify-promise-wire-budget.sh
+
+Verification
+------------
+From a checkout with the repository's Lean/Mathlib dependencies installed:
+
+    tools/verify-promise-wire-budget.sh
+
+The runner builds the module, compiles the examples and counterexamples, and
+checks seven theorem axiom reports against this allowlist:
+
+    propext, Classical.choice, Quot.sound
+
+It fails on a Lean error, missing audit, or unexpected axiom. The verification
+file contains no unproved examples. The toolchain and Mathlib commit are pinned
+by lean/lean-toolchain and lean/lake-manifest.json.
+
+The stock advisory workflow skips PRs without an Outside proof file. Its green
+status is not validation of this research module; use the command above.
+
+1. A basis-independent resource identity
+---------------------------------------
+Let m be the number of listed input wires and q the number of gate wires.
+Each gate has a list of at most two operands. Count repeated operand positions
+separately. Let uses(w) be the total number of reads of wire w, and let o be the
+output. Assume:
+
+  * uses(o) = 0;
+  * every other listed wire is used at least once;
+  * each gate has at most two operands.
+
+Define:
+
+  S = sum over w != o of (uses(w) - 1)
+  D = sum over gates g of (2 - number of operands of g)
+
+resource_identity proves the exact natural-number equation:
+
+    q + 1 = m + S + D
+
+The proof double-counts operand positions. It requires no gate-operation or
+monotonicity hypothesis. In particular, q <= m implies S + D <= 1. No wire can
+then have three readers. Any set of unary or constant gates has cardinality at
+most D. If such a set is nonempty, it has exactly one member and S = 0.
+
+A normalized NOT gate has one effective operand, so it consumes one unit of D.
+A constant gate has zero operands and consumes two. This puts unary gates and
+repeated uses of inputs or intermediate results into one accounting budget.
+
+Scope of the wiring model
+-------------------------
+The listed inputs must be the actually used inputs in the live output cone.
+An unused original coordinate violates the liveness premise. The checks include
+an example where dropping this premise makes the claimed equation false.
+
+The module does not yet construct this wiring model from an arbitrary root
+Circuit. For that bridge one must normalize effective operands, remove dead
+wires, relabel the used raw inputs, and prove the stated premises. Root circuits
+allow ignored extra NOT operands and forward references that evaluate to false;
+these details must be handled by the bridge. Acyclicity and reachability are not
+needed for the double-counting identity itself.
+
+2. Two different separation certificates
+----------------------------------------
+Both input-read theorems allow the distinguished coordinate to be the output
+itself; a zero-gate circuit may directly output an input.
+
+An order witness consists of same-length rows x,y, a distinguished coordinate i,
+and the condition:
+
+    for every k != i, x[k] = true implies y[k] = true.
+
+For an AND/OR circuit with output true on x and false on y,
+separation_forces_read proves that i is the output or occurs in a gate's operand
+list. The proof covers the root circuit semantics, including missing wires.
+No topological-order premise is silently added.
+
+For the AND/OR/NOT basis, separation_forces_read_or_not proves the same conclusion
+with an explicit alternative: a NOT gate occurs. This alternative only records
+the presence of a NOT gate, not a proof that a particular NOT caused the row
+separation.
+
+An equality witness instead requires x[k] = y[k] for every k != i.
+equality_separation_forces_read then proves input necessity for EVERY GateOp in
+the root circuit type. It has no AND/OR/NOT-basis premise. Such Hamming-style
+witnesses support full-function essentiality arguments.
+
+3. A checked boundary example
+-----------------------------
+On the two one-hot rows [true,false] and [false,true], NOT of input 1 agrees with
+input 0 while never reading input 0. It distinguishes those rows and violates
+the monotone-only input-necessity conclusion. On [false,false], it differs from
+input 0. The verification file checks each statement.
+
+After removing the unused original coordinate, this circuit has one used input,
+one gate, zero sharing and one unit of arity deficit. It satisfies the resource
+identity. Thus the example illustrates both the weaker promise-row semantics
+and the accounting cost of a unary operation.
+
+Other checks cover a shared intermediate result, a repeated input, a constant
+gate, and a separating equality witness for a MOD gate outside the Boolean basis.
+
+Why this may connect existing hypotheses
+----------------------------------------
+Graph-function proofs often obtain Hamming witnesses by toggling an endpoint.
+Promise-row representation proofs can instead exploit order witnesses, because
+agreement is required on fewer rows. Moving from the latter to general circuits
+needs explicit control of negation. The two input-read theorems expose exactly
+this difference; the resource identity offers a separate way to charge unary
+operations in a normalized, live wiring.
+
+A possible next step is a finite-state certificate that tracks a frontier's row
+order together with S + D. Row obstructions could reject states; sharing and
+unary gates would consume the same numerical allowance. That certificate checker
+and its normalization bridge are unproved directions, not results of this PR.
+The present theorems do not establish a new circuit lower bound or settle a desk
+problem.
+
+Provenance and motivation
+-------------------------
+* Our earlier graph/restriction work:
+  https://github.com/shivareddy42/pequalnp-proofs/tree/progress/L-meta-1593/progress
+* The small-frontier perspective in the independently submitted table proof:
+  https://github.com/open-goat/pequalnp-proofs/pull/11772
+* Existing full-function essentiality witness constructions:
+  lean/PEqualNP/MetaComplexity/Helpers/ForestBound.lean, F_dep and F_dep_A.
+* Theorems in this contribution use the project's root Circuit and gate semantics
+  and the repository-pinned Mathlib. No accepted lower-bound theorem is assumed.
